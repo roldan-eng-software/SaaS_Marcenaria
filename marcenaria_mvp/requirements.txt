@@ -3,3 +3,4 @@ weasyprint
 boto3
 requests
 pillow
+reportlab

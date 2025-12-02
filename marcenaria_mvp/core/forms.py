@@ -13,13 +13,35 @@ class ClienteForm(forms.ModelForm):
         }
 
 class OrcamentoForm(forms.ModelForm):
+    itens = forms.CharField(required=False, widget=forms.HiddenInput())
+    imagens = forms.CharField(required=False, widget=forms.HiddenInput())
+    
     class Meta:
         model = Orcamento
         fields = ['cliente', 'status', 'itens', 'imagens', 'total']
         widgets = {
             'cliente': forms.Select(attrs={'class': 'form-select'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
-            'itens': forms.HiddenInput(),
-            'imagens': forms.HiddenInput(),
             'total': forms.NumberInput(attrs={'class': 'form-control', 'readonly': 'readonly'}),
         }
+    
+    def clean_itens(self):
+        import json
+        data = self.cleaned_data.get('itens', '[]')
+        if not data:
+            return []
+        try:
+            return json.loads(data)
+        except json.JSONDecodeError:
+            return []
+    
+    def clean_imagens(self):
+        import json
+        data = self.cleaned_data.get('imagens', '[]')
+        if not data:
+            return []
+        try:
+            return json.loads(data)
+        except json.JSONDecodeError:
+            return []
+

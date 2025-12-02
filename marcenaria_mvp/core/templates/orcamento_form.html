@@ -8,6 +8,19 @@
                 <h4 class="mb-0">{% if orcamento %}Editar{% else %}Novo{% endif %} Orçamento</h4>
             </div>
             <div class="card-body">
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    <strong>Erros no formulário:</strong>
+                    <ul>
+                        {% for field, errors in form.errors.items %}
+                        {% for error in errors %}
+                        <li><strong>{{ field }}:</strong> {{ error }}</li>
+                        {% endfor %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
                 <form method="post" id="orcamentoForm">
                     {% csrf_token %}
 
@@ -79,26 +92,22 @@
                         </div>
                     </div>
 
-                    <!-- Step 3: Imagens & Finalização -->
+                    <!-- Step 3: Finalização -->
                     <div id="step3" class="step-section d-none">
-                        <h5 class="mb-3">3. Imagens e Finalização</h5>
+                        <h5 class="mb-3">3. Finalização</h5>
 
                         <div class="alert alert-info">
-                            Upload de imagens será implementado com S3. Por enquanto, adicione URLs manualmente se
-                            necessário.
+                            Revise os dados e clique em "Salvar Orçamento" para finalizar.
                         </div>
 
                         <!-- Hidden Inputs for Django Form -->
-                        {{ form.itens }}
-                        {{ form.imagens }}
-                        <div class="mb-3 d-none">
-                            {{ form.total }}
-                        </div>
+                        <input type="hidden" name="itens" id="id_itens" value="[]">
+                        <input type="hidden" name="imagens" id="id_imagens" value="[]">
+                        <input type="hidden" name="total" id="id_total" value="0">
 
                         <div class="d-flex justify-content-between mt-4">
                             <button type="button" class="btn btn-secondary" onclick="showStep(2)">Voltar</button>
-                            <button type="submit" class="btn btn-success" onclick="prepareSubmit()">Salvar
-                                Orçamento</button>
+                            <button type="submit" class="btn btn-success">Salvar Orçamento</button>
                         </div>
                     </div>
 
@@ -110,16 +119,6 @@
 
 <script>
     let itens = [];
-    // Initialize items if editing
-    {% if orcamento and orcamento.itens %}
-    try {
-        itens = {{ orcamento.itens | safe }
-    };
-        } catch (e) {
-        console.error("Error parsing items", e);
-        itens = [];
-    }
-    {% endif %}
 
     function showStep(step) {
         document.querySelectorAll('.step-section').forEach(el => el.classList.add('d-none'));
@@ -178,17 +177,23 @@
         });
 
         document.getElementById('displayTotal').innerText = total.toFixed(2);
-
-        // Update hidden form fields
         document.getElementById('id_itens').value = JSON.stringify(itens);
         document.getElementById('id_total').value = total.toFixed(2);
     }
 
-    function prepareSubmit() {
+    // Update hidden fields before form submission
+    document.getElementById('orcamentoForm').addEventListener('submit', function (e) {
+        if (itens.length === 0) {
+            e.preventDefault();
+            alert("Adicione pelo menos um item ao orçamento!");
+            showStep(2);
+            return false;
+        }
+
         document.getElementById('id_itens').value = JSON.stringify(itens);
-        // Images logic would go here
         document.getElementById('id_imagens').value = JSON.stringify([]);
-    }
+        return true;
+    });
 
     // Initial render
     renderItems();
