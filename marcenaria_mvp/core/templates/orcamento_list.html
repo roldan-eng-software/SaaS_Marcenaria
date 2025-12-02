@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Orçamentos</h2>
+    <a href="{% url 'orcamento_create' %}" class="btn btn-primary">Novo Orçamento</a>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead class="table-dark" style="background-color: var(--marrom) !important;">
+            <tr>
+                <th>ID</th>
+                <th>Cliente</th>
+                <th>Data</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for orcamento in orcamentos %}
+            <tr>
+                <td>#{{ orcamento.id }}</td>
+                <td>{{ orcamento.cliente.nome }}</td>
+                <td>{{ orcamento.data_criacao|date:"d/m/Y" }}</td>
+                <td>R$ {{ orcamento.total }}</td>
+                <td>
+                    {% if orcamento.status == "aprovado" %}
+                    <span class="badge bg-success">Aprovado</span>
+                    {% elif orcamento.status == "enviado" %}
+                    <span class="badge bg-primary">Enviado</span>
+                    {% else %}
+                    <span class="badge bg-secondary">Rascunho</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'orcamento_edit' orcamento.id %}" class="btn btn-sm btn-info text-white">Editar</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center">Nenhum orçamento encontrado.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

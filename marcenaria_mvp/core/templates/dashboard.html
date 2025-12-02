@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2 class="mb-4">Dashboard</h2>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card text-white bg-warning mb-3">
+            <div class="card-header">Orçamentos Pendentes</div>
+            <div class="card-body">
+                <h5 class="card-title">{{ orcamentos_pendentes }}</h5>
+                <p class="card-text">Aguardando aprovação.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-success mb-3" style="background-color: var(--verde-madeira) !important;">
+            <div class="card-header">Clientes Novos</div>
+            <div class="card-body">
+                <h5 class="card-title">{{ clientes_novos }}</h5>
+                <p class="card-text">Total de clientes cadastrados.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-header">Receita Estimada</div>
+            <div class="card-body">
+                <h5 class="card-title">R$ {{ receita }}</h5>
+                <p class="card-text">Baseado em orçamentos aprovados.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

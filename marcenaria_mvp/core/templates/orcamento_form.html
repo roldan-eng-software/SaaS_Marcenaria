@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header bg-primary text-white" style="background-color: var(--verde-madeira) !important;">
+                <h4 class="mb-0">{% if orcamento %}Editar{% else %}Novo{% endif %} Orçamento</h4>
+            </div>
+            <div class="card-body">
+                <form method="post" id="orcamentoForm">
+                    {% csrf_token %}
+
+                    <!-- Step 1: Cliente & Status -->
+                    <div id="step1" class="step-section">
+                        <h5 class="mb-3">1. Dados do Cliente</h5>
+                        <div class="mb-3">
+                            <label for="{{ form.cliente.id_for_label }}" class="form-label">Cliente</label>
+                            {{ form.cliente }}
+                        </div>
+                        <div class="mb-3">
+                            <label for="{{ form.status.id_for_label }}" class="form-label">Status</label>
+                            {{ form.status }}
+                        </div>
+                        <div class="d-flex justify-content-end">
+                            <button type="button" class="btn btn-primary" onclick="showStep(2)">Próximo</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Itens -->
+                    <div id="step2" class="step-section d-none">
+                        <h5 class="mb-3">2. Itens do Orçamento</h5>
+
+                        <div class="table-responsive mb-3">
+                            <table class="table table-bordered" id="itensTable">
+                                <thead>
+                                    <tr>
+                                        <th>Material/Serviço</th>
+                                        <th width="100">Qtd</th>
+                                        <th width="150">Preço Unit.</th>
+                                        <th width="150">Subtotal</th>
+                                        <th width="50"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="itensBody">
+                                    <!-- Items will be added here via JS -->
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="3" class="text-end fw-bold">Total:</td>
+                                        <td colspan="2" class="fw-bold">R$ <span id="displayTotal">0.00</span></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <div class="row g-2 mb-4 align-items-end">
+                            <div class="col-md-5">
+                                <label class="form-label">Material/Descrição</label>
+                                <input type="text" class="form-control" id="newItemMaterial">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Qtd</label>
+                                <input type="number" class="form-control" id="newItemQtd" value="1" min="1">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Preço Unit (R$)</label>
+                                <input type="number" class="form-control" id="newItemPreco" step="0.01">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-success w-100"
+                                    onclick="addItem()">Adicionar</button>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <button type="button" class="btn btn-secondary" onclick="showStep(1)">Voltar</button>
+                            <button type="button" class="btn btn-primary" onclick="showStep(3)">Próximo</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Imagens & Finalização -->
+                    <div id="step3" class="step-section d-none">
+                        <h5 class="mb-3">3. Imagens e Finalização</h5>
+
+                        <div class="alert alert-info">
+                            Upload de imagens será implementado com S3. Por enquanto, adicione URLs manualmente se
+                            necessário.
+                        </div>
+
+                        <!-- Hidden Inputs for Django Form -->
+                        {{ form.itens }}
+                        {{ form.imagens }}
+                        <div class="mb-3 d-none">
+                            {{ form.total }}
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <button type="button" class="btn btn-secondary" onclick="showStep(2)">Voltar</button>
+                            <button type="submit" class="btn btn-success" onclick="prepareSubmit()">Salvar
+                                Orçamento</button>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let itens = [];
+    // Initialize items if editing
+    {% if orcamento and orcamento.itens %}
+    try {
+        itens = {{ orcamento.itens | safe }
+    };
+        } catch (e) {
+        console.error("Error parsing items", e);
+        itens = [];
+    }
+    {% endif %}
+
+    function showStep(step) {
+        document.querySelectorAll('.step-section').forEach(el => el.classList.add('d-none'));
+        document.getElementById('step' + step).classList.remove('d-none');
+    }
+
+    function addItem() {
+        const material = document.getElementById('newItemMaterial').value;
+        const qtd = parseFloat(document.getElementById('newItemQtd').value);
+        const preco = parseFloat(document.getElementById('newItemPreco').value);
+
+        if (!material || !qtd || isNaN(preco)) {
+            alert("Preencha todos os campos do item.");
+            return;
+        }
+
+        itens.push({
+            material: material,
+            qtd: qtd,
+            preco_unit: preco
+        });
+
+        document.getElementById('newItemMaterial').value = '';
+        document.getElementById('newItemQtd').value = '1';
+        document.getElementById('newItemPreco').value = '';
+        document.getElementById('newItemMaterial').focus();
+
+        renderItems();
+    }
+
+    function removeItem(index) {
+        itens.splice(index, 1);
+        renderItems();
+    }
+
+    function renderItems() {
+        const tbody = document.getElementById('itensBody');
+        tbody.innerHTML = '';
+        let total = 0;
+
+        itens.forEach((item, index) => {
+            const subtotal = item.qtd * item.preco_unit;
+            total += subtotal;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.material}</td>
+                <td>${item.qtd}</td>
+                <td>R$ ${item.preco_unit.toFixed(2)}</td>
+                <td>R$ ${subtotal.toFixed(2)}</td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="removeItem(${index})">&times;</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('displayTotal').innerText = total.toFixed(2);
+
+        // Update hidden form fields
+        document.getElementById('id_itens').value = JSON.stringify(itens);
+        document.getElementById('id_total').value = total.toFixed(2);
+    }
+
+    function prepareSubmit() {
+        document.getElementById('id_itens').value = JSON.stringify(itens);
+        // Images logic would go here
+        document.getElementById('id_imagens').value = JSON.stringify([]);
+    }
+
+    // Initial render
+    renderItems();
+</script>
+{% endblock %}
