@@ -14,6 +14,8 @@ urlpatterns = [
     # Orçamentos
     path('orcamentos/', views.orcamento_list, name='orcamento_list'),
     path('orcamentos/novo/', views.orcamento_create, name='orcamento_create'),
+    path('orcamentos/<int:pk>/', views.orcamento_detail, name='orcamento_detail'),
     path('orcamentos/<int:pk>/editar/', views.orcamento_edit, name='orcamento_edit'),
     path('orcamentos/<int:pk>/pdf/', views.orcamento_pdf, name='orcamento_pdf'),
+    path('orcamentos/<int:pk>/status/', views.orcamento_update_status, name='orcamento_update_status'),
 ]

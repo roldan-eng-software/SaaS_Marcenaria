@@ -8,7 +8,6 @@ import json
 def dashboard(request):
     orcamentos_pendentes = Orcamento.objects.filter(status='rascunho').count()
     clientes_novos = Cliente.objects.count()
-    # Calculate total revenue from approved budgets
     receita = sum(orc.total for orc in Orcamento.objects.filter(status='aprovado'))
     
     return render(request, 'dashboard.html', {
@@ -53,9 +52,8 @@ def orcamento_create(request):
         if form.is_valid():
             orcamento = form.save(commit=False)
             orcamento.save()
-            return redirect('orcamento_list')
+            return redirect('orcamento_detail', pk=orcamento.id)
         else:
-            # Print errors to console for debugging
             print("Form errors:", form.errors)
             print("POST data:", request.POST)
     else:
@@ -69,10 +67,27 @@ def orcamento_edit(request, pk):
         form = OrcamentoForm(request.POST, instance=orcamento)
         if form.is_valid():
             form.save()
-            return redirect('orcamento_list')
+            return redirect('orcamento_detail', pk=pk)
+        else:
+            print("Form errors:", form.errors)
     else:
         form = OrcamentoForm(instance=orcamento)
     return render(request, 'orcamento_form.html', {'form': form, 'orcamento': orcamento})
+
+@login_required
+def orcamento_detail(request, pk):
+    orcamento = get_object_or_404(Orcamento, pk=pk)
+    return render(request, 'orcamento_detail.html', {'orcamento': orcamento})
+
+@login_required
+def orcamento_update_status(request, pk):
+    if request.method == 'POST':
+        orcamento = get_object_or_404(Orcamento, pk=pk)
+        new_status = request.POST.get('status')
+        if new_status in ['rascunho', 'enviado', 'aprovado']:
+            orcamento.status = new_status
+            orcamento.save()
+    return redirect('orcamento_detail', pk=pk)
 
 @login_required
 def orcamento_pdf(request, pk):
@@ -82,20 +97,17 @@ def orcamento_pdf(request, pk):
     from reportlab.lib.units import cm
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+    from reportlab.lib.enums import TA_CENTER
     from io import BytesIO
     
     orcamento = get_object_or_404(Orcamento, pk=pk)
     
-    # Create PDF buffer
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
     
-    # Container for PDF elements
     elements = []
     styles = getSampleStyleSheet()
     
-    # Custom styles
     title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['Heading1'],
@@ -110,18 +122,13 @@ def orcamento_pdf(request, pk):
         parent=styles['Heading2'],
         fontSize=14,
         textColor=colors.HexColor('#2C5530'),
-        spaceAfter=12,
-        borderColor=colors.HexColor('#D4A017'),
-        borderWidth=2,
-        borderPadding=5
+        spaceAfter=12
     )
     
-    # Title
     elements.append(Paragraph("MARCENARIA PRO", title_style))
     elements.append(Paragraph("Orçamento Profissional", styles['Normal']))
     elements.append(Spacer(1, 20))
     
-    # Orçamento Info
     elements.append(Paragraph("Informações do Orçamento", heading_style))
     info_data = [
         ['Número:', f'#{orcamento.id}', 'Data:', orcamento.data_criacao.strftime('%d/%m/%Y')],
@@ -136,7 +143,6 @@ def orcamento_pdf(request, pk):
     elements.append(info_table)
     elements.append(Spacer(1, 20))
     
-    # Cliente Info
     elements.append(Paragraph("Dados do Cliente", heading_style))
     cliente_data = [
         ['Nome:', orcamento.cliente.nome],
@@ -156,7 +162,6 @@ def orcamento_pdf(request, pk):
     elements.append(cliente_table)
     elements.append(Spacer(1, 20))
     
-    # Itens
     elements.append(Paragraph("Itens do Orçamento", heading_style))
     itens_data = [['Material/Serviço', 'Qtd', 'Preço Unit.', 'Subtotal']]
     
@@ -169,7 +174,6 @@ def orcamento_pdf(request, pk):
             f"R$ {subtotal:.2f}"
         ])
     
-    # Total row
     itens_data.append(['', '', 'TOTAL:', f"R$ {orcamento.total:.2f}"])
     
     itens_table = Table(itens_data, colWidths=[8*cm, 2*cm, 3*cm, 3*cm])
@@ -188,21 +192,16 @@ def orcamento_pdf(request, pk):
     elements.append(itens_table)
     elements.append(Spacer(1, 30))
     
-    # Footer
     footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=9, textColor=colors.grey, alignment=TA_CENTER)
     elements.append(Paragraph("Este orçamento tem validade de 30 dias a partir da data de emissão.", footer_style))
     elements.append(Paragraph("Marcenaria Pro - Qualidade e Excelência em Marcenaria", footer_style))
     
-    # Build PDF
     doc.build(elements)
     
-    # Get PDF from buffer
     pdf = buffer.getvalue()
     buffer.close()
     
-    # Create HTTP response
     response = HttpResponse(pdf, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="orcamento_{orcamento.id}.pdf"'
     
     return response
-
