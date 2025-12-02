@@ -6,6 +6,20 @@
     <a href="{% url 'orcamento_create' %}" class="btn btn-primary">Novo Orçamento</a>
 </div>
 
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="d-flex gap-2">
+            <select name="status" class="form-select w-auto">
+                <option value="">Todos os Status</option>
+                <option value="rascunho">Rascunho</option>
+                <option value="enviado">Enviado</option>
+                <option value="aprovado">Aprovado</option>
+            </select>
+            <button type="submit" class="btn btn-outline-secondary">Filtrar</button>
+        </form>
+    </div>
+</div>
+
 <div class="table-responsive">
     <table class="table table-striped table-hover">
         <thead class="table-dark" style="background-color: var(--marrom) !important;">
