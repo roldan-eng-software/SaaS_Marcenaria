@@ -3,6 +3,13 @@ from django.contrib.auth.decorators import login_required
 from .models import Cliente, Orcamento
 from .forms import ClienteForm, OrcamentoForm
 import json
+import logging
+from django.template.loader import render_to_string
+from django.conf import settings
+import requests
+import boto3
+
+logger = logging.getLogger(__name__)
 
 @login_required
 def dashboard(request):
@@ -54,8 +61,8 @@ def orcamento_create(request):
             orcamento.save()
             return redirect('orcamento_detail', pk=orcamento.id)
         else:
-            print("Form errors:", form.errors)
-            print("POST data:", request.POST)
+            logger.error("Form errors: %s", form.errors)
+            logger.debug("POST data: %s", request.POST)
     else:
         form = OrcamentoForm()
     return render(request, 'orcamento_form.html', {'form': form})
@@ -69,7 +76,7 @@ def orcamento_edit(request, pk):
             form.save()
             return redirect('orcamento_detail', pk=pk)
         else:
-            print("Form errors:", form.errors)
+            logger.error("Form errors: %s", form.errors)
     else:
         form = OrcamentoForm(instance=orcamento)
     return render(request, 'orcamento_form.html', {'form': form, 'orcamento': orcamento})
@@ -92,116 +99,70 @@ def orcamento_update_status(request, pk):
 @login_required
 def orcamento_pdf(request, pk):
     from django.http import HttpResponse
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib import colors
-    from reportlab.lib.units import cm
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.enums import TA_CENTER
-    from io import BytesIO
-    
+    from weasyprint import HTML
     orcamento = get_object_or_404(Orcamento, pk=pk)
-    
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
-    
-    elements = []
-    styles = getSampleStyleSheet()
-    
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=24,
-        textColor=colors.HexColor('#2C5530'),
-        spaceAfter=30,
-        alignment=TA_CENTER
-    )
-    
-    heading_style = ParagraphStyle(
-        'CustomHeading',
-        parent=styles['Heading2'],
-        fontSize=14,
-        textColor=colors.HexColor('#2C5530'),
-        spaceAfter=12
-    )
-    
-    elements.append(Paragraph("MARCENARIA PRO", title_style))
-    elements.append(Paragraph("Orçamento Profissional", styles['Normal']))
-    elements.append(Spacer(1, 20))
-    
-    elements.append(Paragraph("Informações do Orçamento", heading_style))
-    info_data = [
-        ['Número:', f'#{orcamento.id}', 'Data:', orcamento.data_criacao.strftime('%d/%m/%Y')],
-        ['Status:', orcamento.get_status_display(), '', '']
-    ]
-    info_table = Table(info_data, colWidths=[3*cm, 5*cm, 3*cm, 5*cm])
-    info_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#2C5530')),
-    ]))
-    elements.append(info_table)
-    elements.append(Spacer(1, 20))
-    
-    elements.append(Paragraph("Dados do Cliente", heading_style))
-    cliente_data = [
-        ['Nome:', orcamento.cliente.nome],
-        ['WhatsApp:', orcamento.cliente.whatsapp],
-    ]
-    if orcamento.cliente.email:
-        cliente_data.append(['Email:', orcamento.cliente.email])
-    if orcamento.cliente.endereco:
-        cliente_data.append(['Endereço:', orcamento.cliente.endereco])
-    
-    cliente_table = Table(cliente_data, colWidths=[4*cm, 12*cm])
-    cliente_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#2C5530')),
-    ]))
-    elements.append(cliente_table)
-    elements.append(Spacer(1, 20))
-    
-    elements.append(Paragraph("Itens do Orçamento", heading_style))
-    itens_data = [['Material/Serviço', 'Qtd', 'Preço Unit.', 'Subtotal']]
-    
-    for item in orcamento.itens:
-        subtotal = item['qtd'] * item['preco_unit']
-        itens_data.append([
-            item['material'],
-            str(item['qtd']),
-            f"R$ {item['preco_unit']:.2f}",
-            f"R$ {subtotal:.2f}"
-        ])
-    
-    itens_data.append(['', '', 'TOTAL:', f"R$ {orcamento.total:.2f}"])
-    
-    itens_table = Table(itens_data, colWidths=[8*cm, 2*cm, 3*cm, 3*cm])
-    itens_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2C5530')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#D4A017')),
-        ('TEXTCOLOR', (0, -1), (-1, -1), colors.whitesmoke),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-        ('GRID', (0, 0), (-1, -2), 1, colors.grey),
-    ]))
-    elements.append(itens_table)
-    elements.append(Spacer(1, 30))
-    
-    footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=9, textColor=colors.grey, alignment=TA_CENTER)
-    elements.append(Paragraph("Este orçamento tem validade de 30 dias a partir da data de emissão.", footer_style))
-    elements.append(Paragraph("Marcenaria Pro - Qualidade e Excelência em Marcenaria", footer_style))
-    
-    doc.build(elements)
-    
-    pdf = buffer.getvalue()
-    buffer.close()
-    
-    response = HttpResponse(pdf, content_type='application/pdf')
+    html = render_to_string('orcamento_pdf.html', {'orcamento': orcamento})
+    pdf_bytes = HTML(string=html).write_pdf()
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="orcamento_{orcamento.id}.pdf"'
-    
     return response
+
+@login_required
+def orcamento_enviar(request, pk):
+    from django.contrib import messages
+    from weasyprint import HTML
+    orcamento = get_object_or_404(Orcamento, pk=pk)
+    try:
+        html = render_to_string('orcamento_pdf.html', {'orcamento': orcamento})
+        pdf_bytes = HTML(string=html).write_pdf()
+
+        bucket = settings.AWS_STORAGE_BUCKET_NAME
+        if not bucket:
+            messages.error(request, 'Bucket S3 não configurado.')
+            return redirect('orcamento_detail', pk=pk)
+
+        s3 = boto3.client(
+            's3',
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=settings.AWS_S3_REGION_NAME,
+        )
+        key = f"orcamentos/orcamento_{orcamento.id}.pdf"
+        s3.put_object(Bucket=bucket, Key=key, Body=pdf_bytes, ContentType='application/pdf')
+        presigned_url = s3.generate_presigned_url(
+            'get_object', Params={'Bucket': bucket, 'Key': key}, ExpiresIn=3600
+        )
+
+        token = settings.WHATSAPP_API_TOKEN
+        phone_id = settings.WHATSAPP_PHONE_NUMBER_ID
+        if not token or not phone_id:
+            messages.error(request, 'Credenciais WhatsApp não configuradas.')
+            return redirect('orcamento_detail', pk=pk)
+
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json',
+        }
+        payload = {
+            'messaging_product': 'whatsapp',
+            'to': orcamento.cliente.whatsapp,
+            'type': 'text',
+            'text': {
+                'preview_url': True,
+                'body': f"Olá {orcamento.cliente.nome}! Seu orçamento: {presigned_url}",
+            },
+        }
+        url = f"https://graph.facebook.com/v20.0/{phone_id}/messages"
+        resp = requests.post(url, headers=headers, json=payload, timeout=20)
+        if resp.status_code >= 200 and resp.status_code < 300:
+            orcamento.status = 'enviado'
+            orcamento.save()
+            messages.success(request, 'Orçamento enviado via WhatsApp com sucesso.')
+        else:
+            logger.error('Erro WhatsApp: %s', resp.text)
+            messages.error(request, 'Falha ao enviar WhatsApp. Verifique credenciais e formato do número.')
+    except Exception as e:
+        logger.exception('Falha ao gerar/enviar orçamento: %s', e)
+        from django.contrib import messages
+        messages.error(request, 'Erro ao processar envio do orçamento.')
+    return redirect('orcamento_detail', pk=pk)

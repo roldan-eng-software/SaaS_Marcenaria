@@ -53,6 +53,8 @@
                         title="Ver Detalhes">Ver</a>
                     <a href="{% url 'orcamento_edit' orcamento.id %}"
                         class="btn btn-sm btn-info text-white me-1">Editar</a>
+                    <a href="{% url 'orcamento_enviar' orcamento.id %}"
+                        class="btn btn-sm btn-success text-white me-1">Enviar</a>
                     <a href="{% url 'orcamento_pdf' orcamento.id %}" class="btn btn-sm btn-danger" target="_blank"
                         title="Baixar PDF">PDF</a>
                 </td>

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load custom_filters %}
 
 {% block content %}
 <div class="container">
@@ -7,6 +8,9 @@
         <div>
             <a href="{% url 'orcamento_list' %}" class="btn btn-secondary">Voltar</a>
             <a href="{% url 'orcamento_edit' orcamento.id %}" class="btn btn-primary">Editar Orçamento</a>
+            <a href="{% url 'orcamento_enviar' orcamento.id %}" class="btn btn-success">
+                Enviar WhatsApp
+            </a>
             <a href="{% url 'orcamento_pdf' orcamento.id %}" class="btn btn-danger" target="_blank">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
                     class="bi bi-file-pdf" viewBox="0 0 16 16">

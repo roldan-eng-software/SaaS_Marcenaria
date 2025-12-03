@@ -1,6 +1,6 @@
 Django>=5.0,<6.0
-weasyprint
 boto3
 requests
 pillow
 reportlab
+weasyprint
