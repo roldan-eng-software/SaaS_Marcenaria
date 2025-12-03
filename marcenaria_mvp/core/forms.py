@@ -15,10 +15,19 @@ class ClienteForm(forms.ModelForm):
 class OrcamentoForm(forms.ModelForm):
     itens = forms.CharField(required=False, widget=forms.HiddenInput())
     imagens = forms.CharField(required=False, widget=forms.HiddenInput())
+    upload_imagens = forms.FileField(
+        required=False,
+        widget=forms.ClearableFileInput(attrs={
+            'class': 'form-control',
+            'multiple': True,
+            'accept': 'image/*'
+        }),
+        label='Upload de Imagens'
+    )
     
     class Meta:
         model = Orcamento
-        fields = ['cliente', 'status', 'itens', 'imagens', 'total']
+        fields = ['cliente', 'status', 'itens', 'imagens', 'total', 'upload_imagens']
         widgets = {
             'cliente': forms.Select(attrs={'class': 'form-select'}),
             'status': forms.Select(attrs={'class': 'form-select'}),

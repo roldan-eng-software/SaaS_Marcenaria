@@ -44,20 +44,79 @@ def cliente_create(request):
     return render(request, 'cliente_form.html', {'form': form})
 
 @login_required
+def cliente_edit(request, pk):
+    cliente = get_object_or_404(Cliente, pk=pk)
+    if request.method == 'POST':
+        form = ClienteForm(request.POST, instance=cliente)
+        if form.is_valid():
+            form.save()
+            return redirect('clientes_list')
+    else:
+        form = ClienteForm(instance=cliente)
+    return render(request, 'cliente_form.html', {'form': form})
+
+@login_required
 def orcamento_list(request):
     status_filter = request.GET.get('status')
+    data_inicio = request.GET.get('data_inicio')
+    data_fim = request.GET.get('data_fim')
+    
+    orcamentos = Orcamento.objects.all()
+    
     if status_filter:
-        orcamentos = Orcamento.objects.filter(status=status_filter)
-    else:
-        orcamentos = Orcamento.objects.all()
+        orcamentos = orcamentos.filter(status=status_filter)
+    
+    if data_inicio:
+        orcamentos = orcamentos.filter(data_criacao__date__gte=data_inicio)
+        
+    if data_fim:
+        orcamentos = orcamentos.filter(data_criacao__date__lte=data_fim)
+        
     return render(request, 'orcamento_list.html', {'orcamentos': orcamentos})
 
 @login_required
 def orcamento_create(request):
     if request.method == 'POST':
-        form = OrcamentoForm(request.POST)
+        form = OrcamentoForm(request.POST, request.FILES)
         if form.is_valid():
             orcamento = form.save(commit=False)
+            
+            # Processar upload de imagens para S3
+            uploaded_images = []
+            upload_files = request.FILES.getlist('upload_imagens')
+            
+            if upload_files and settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY and not settings.AWS_ACCESS_KEY_ID.startswith('your-'):
+                s3 = boto3.client(
+                    's3',
+                    aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                    region_name=settings.AWS_S3_REGION_NAME,
+                    endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+                )
+                
+                for file in upload_files:
+                    try:
+                        key = f"orcamentos/{orcamento.id if orcamento.id else 'temp'}/{file.name}"
+                        s3.upload_fileobj(
+                            file,
+                            settings.AWS_STORAGE_BUCKET_NAME,
+                            key,
+                            ExtraArgs={'ContentType': file.content_type}
+                        )
+                        
+                        image_url = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{key}"
+                        uploaded_images.append({
+                            's3_url': image_url,
+                            'descricao': file.name
+                        })
+                        
+                    except Exception as e:
+                        logger.error("Erro no upload para S3: %s", e)
+            
+            # Combinar imagens existentes com novas
+            existing_images = form.cleaned_data.get('imagens', [])
+            orcamento.imagens = existing_images + uploaded_images
+            
             orcamento.save()
             return redirect('orcamento_detail', pk=orcamento.id)
         else:
@@ -126,6 +185,7 @@ def orcamento_enviar(request, pk):
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
             region_name=settings.AWS_S3_REGION_NAME,
+            endpoint_url=settings.AWS_S3_ENDPOINT_URL,
         )
         key = f"orcamentos/orcamento_{orcamento.id}.pdf"
         s3.put_object(Bucket=bucket, Key=key, Body=pdf_bytes, ContentType='application/pdf')

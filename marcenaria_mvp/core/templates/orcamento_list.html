@@ -8,14 +8,28 @@
 
 <div class="card mb-4">
     <div class="card-body">
-        <form method="get" class="d-flex gap-2">
-            <select name="status" class="form-select w-auto">
-                <option value="">Todos os Status</option>
-                <option value="rascunho">Rascunho</option>
-                <option value="enviado">Enviado</option>
-                <option value="aprovado">Aprovado</option>
-            </select>
+        <form method="get" class="d-flex gap-2 align-items-end flex-wrap">
+            <div>
+                <label class="form-label small mb-1">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="rascunho" {% if request.GET.status=='rascunho' %}selected{% endif %}>Rascunho
+                    </option>
+                    <option value="enviado" {% if request.GET.status=='enviado' %}selected{% endif %}>Enviado</option>
+                    <option value="aprovado" {% if request.GET.status=='aprovado' %}selected{% endif %}>Aprovado
+                    </option>
+                </select>
+            </div>
+            <div>
+                <label class="form-label small mb-1">Data Início</label>
+                <input type="date" name="data_inicio" class="form-control" value="{{ request.GET.data_inicio }}">
+            </div>
+            <div>
+                <label class="form-label small mb-1">Data Fim</label>
+                <input type="date" name="data_fim" class="form-control" value="{{ request.GET.data_fim }}">
+            </div>
             <button type="submit" class="btn btn-outline-secondary">Filtrar</button>
+            <a href="{% url 'orcamento_list' %}" class="btn btn-link text-decoration-none">Limpar</a>
         </form>
     </div>
 </div>

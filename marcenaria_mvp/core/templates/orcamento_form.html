@@ -92,9 +92,31 @@
                         </div>
                     </div>
 
-                    <!-- Step 3: Finalização -->
+                    <!-- Step 3: Upload de Imagens -->
                     <div id="step3" class="step-section d-none">
-                        <h5 class="mb-3">3. Finalização</h5>
+                        <h5 class="mb-3">3. Upload de Imagens</h5>
+
+                        <div class="mb-4">
+                            <label for="{{ form.upload_imagens.id_for_label }}" class="form-label">
+                                {{ form.upload_imagens.label }}
+                            </label>
+                            {{ form.upload_imagens }}
+                            <div class="form-text">Selecione múltiplas imagens para o orçamento (máx. 10MB cada)</div>
+                        </div>
+
+                        <div id="imagePreview" class="row mb-4">
+                            <!-- Preview das imagens será exibido aqui -->
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <button type="button" class="btn btn-secondary" onclick="showStep(2)">Voltar</button>
+                            <button type="button" class="btn btn-primary" onclick="showStep(4)">Próximo</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Finalização -->
+                    <div id="step4" class="step-section d-none">
+                        <h5 class="mb-3">4. Finalização</h5>
 
                         <div class="alert alert-info">
                             Revise os dados e clique em "Salvar Orçamento" para finalizar.
@@ -106,7 +128,7 @@
                         <input type="hidden" name="total" id="id_total" value="0">
 
                         <div class="d-flex justify-content-between mt-4">
-                            <button type="button" class="btn btn-secondary" onclick="showStep(2)">Voltar</button>
+                            <button type="button" class="btn btn-secondary" onclick="showStep(3)">Voltar</button>
                             <button type="submit" class="btn btn-success">Salvar Orçamento</button>
                         </div>
                     </div>
@@ -118,84 +140,97 @@
 </div>
 
 <script>
-    let itens = [];
+    {% if orcamento %}
+    { { orcamento.itens | json_script: "orcamento-itens-data" } }
+    {% else %}
+    <script id="orcamento-itens-data" type="application/json">[]</script>
+{% endif %}
 
-    function showStep(step) {
-        document.querySelectorAll('.step-section').forEach(el => el.classList.add('d-none'));
-        document.getElementById('step' + step).classList.remove('d-none');
-    }
+let itens = [];
+try {
+itens = JSON.parse(document.getElementById('orcamento-itens-data').textContent);
+if (!Array.isArray(itens)) itens = [];
+} catch (e) {
+console.error("Erro ao carregar itens:", e);
+itens = [];
+}
 
-    function addItem() {
-        const material = document.getElementById('newItemMaterial').value;
-        const qtd = parseFloat(document.getElementById('newItemQtd').value);
-        const preco = parseFloat(document.getElementById('newItemPreco').value);
+function showStep(step) {
+document.querySelectorAll('.step-section').forEach(el => el.classList.add('d-none'));
+document.getElementById('step' + step).classList.remove('d-none');
+}
 
-        if (!material || !qtd || isNaN(preco)) {
-            alert("Preencha todos os campos do item.");
-            return;
-        }
+function addItem() {
+const material = document.getElementById('newItemMaterial').value;
+const qtd = parseFloat(document.getElementById('newItemQtd').value);
+const preco = parseFloat(document.getElementById('newItemPreco').value);
 
-        itens.push({
-            material: material,
-            qtd: qtd,
-            preco_unit: preco
-        });
+if (!material || !qtd || isNaN(preco)) {
+alert("Preencha todos os campos do item.");
+return;
+}
 
-        document.getElementById('newItemMaterial').value = '';
-        document.getElementById('newItemQtd').value = '1';
-        document.getElementById('newItemPreco').value = '';
-        document.getElementById('newItemMaterial').focus();
+itens.push({
+material: material,
+qtd: qtd,
+preco_unit: preco
+});
 
-        renderItems();
-    }
+document.getElementById('newItemMaterial').value = '';
+document.getElementById('newItemQtd').value = '1';
+document.getElementById('newItemPreco').value = '';
+document.getElementById('newItemMaterial').focus();
 
-    function removeItem(index) {
-        itens.splice(index, 1);
-        renderItems();
-    }
+renderItems();
+}
 
-    function renderItems() {
-        const tbody = document.getElementById('itensBody');
-        tbody.innerHTML = '';
-        let total = 0;
+function removeItem(index) {
+itens.splice(index, 1);
+renderItems();
+}
 
-        itens.forEach((item, index) => {
-            const subtotal = item.qtd * item.preco_unit;
-            total += subtotal;
+function renderItems() {
+const tbody = document.getElementById('itensBody');
+tbody.innerHTML = '';
+let total = 0;
 
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${item.material}</td>
-                <td>${item.qtd}</td>
-                <td>R$ ${item.preco_unit.toFixed(2)}</td>
-                <td>R$ ${subtotal.toFixed(2)}</td>
-                <td>
-                    <button type="button" class="btn btn-sm btn-danger" onclick="removeItem(${index})">&times;</button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
+itens.forEach((item, index) => {
+const subtotal = item.qtd * item.preco_unit;
+total += subtotal;
 
-        document.getElementById('displayTotal').innerText = total.toFixed(2);
-        document.getElementById('id_itens').value = JSON.stringify(itens);
-        document.getElementById('id_total').value = total.toFixed(2);
-    }
+const tr = document.createElement('tr');
+tr.innerHTML = `
+<td>${item.material}</td>
+<td>${item.qtd}</td>
+<td>R$ ${item.preco_unit.toFixed(2)}</td>
+<td>R$ ${subtotal.toFixed(2)}</td>
+<td>
+    <button type="button" class="btn btn-sm btn-danger" onclick="removeItem(${index})">&times;</button>
+</td>
+`;
+tbody.appendChild(tr);
+});
 
-    // Update hidden fields before form submission
-    document.getElementById('orcamentoForm').addEventListener('submit', function (e) {
-        if (itens.length === 0) {
-            e.preventDefault();
-            alert("Adicione pelo menos um item ao orçamento!");
-            showStep(2);
-            return false;
-        }
+document.getElementById('displayTotal').innerText = total.toFixed(2);
+document.getElementById('id_itens').value = JSON.stringify(itens);
+document.getElementById('id_total').value = total.toFixed(2);
+}
 
-        document.getElementById('id_itens').value = JSON.stringify(itens);
-        document.getElementById('id_imagens').value = JSON.stringify([]);
-        return true;
-    });
+// Update hidden fields before form submission
+document.getElementById('orcamentoForm').addEventListener('submit', function (e) {
+if (itens.length === 0) {
+e.preventDefault();
+alert("Adicione pelo menos um item ao orçamento!");
+showStep(2);
+return false;
+}
 
-    // Initial render
-    renderItems();
+document.getElementById('id_itens').value = JSON.stringify(itens);
+document.getElementById('id_imagens').value = JSON.stringify([]);
+return true;
+});
+
+// Initial render
+renderItems();
 </script>
 {% endblock %}

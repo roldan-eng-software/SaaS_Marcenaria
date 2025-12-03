@@ -4,3 +4,4 @@ requests
 pillow
 reportlab
 weasyprint
+python-dotenv

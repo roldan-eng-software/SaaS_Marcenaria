@@ -1,88 +1,112 @@
-# Marcenaria MVP
+# 🪵 Marcenaria Pro - Sistema de Gestão para Marceneiros
 
-Sistema de gestão simplificado para marceneiros autônomos e pequenas marcenarias.
+Sistema completo de gestão para marceneiros autônomos e pequenas marcenarias, desenvolvido com Django.
 
-## 🛠️ Tech Stack
+## 🎯 Funcionalidades
+
+### ✅ Gestão de Clientes
+- Cadastro completo (nome, WhatsApp, email, endereço)
+- Busca por nome
+- Edição de dados
+
+### 📋 Gestão de Orçamentos
+- Criação de orçamentos com múltiplos itens
+- Cálculo automático de totais
+- Upload de imagens de referência (DigitalOcean Spaces)
+- Geração de PDF profissional
+- Envio automático via WhatsApp
+- Controle de status (Rascunho, Enviado, Aprovado)
+- Filtros por status e data
+
+### 📊 Dashboard
+- Visão geral de orçamentos pendentes
+- Total de clientes
+- Receita de orçamentos aprovados
+
+## 🛠️ Tecnologias
 
 - **Backend:** Django 5.x + Python 3.12
-- **Frontend:** HTML5 + CSS3 + Bootstrap 5.3
-- **Database:** SQLite
-- **Storage:** AWS S3 (Configurado via `boto3`)
-- **Integrações:** WhatsApp Business API, WeasyPrint (PDFs)
+- **Frontend:** HTML + CSS + Bootstrap 5.3
+- **Banco de Dados:** SQLite (dev) / PostgreSQL (prod)
+- **Armazenamento:** DigitalOcean Spaces (S3-compatible)
+- **PDF:** WeasyPrint
+- **Mensagens:** WhatsApp Business API
 
-## 🚀 Como Iniciar o Projeto
+## 🚀 Quick Start
 
-### 1. Pré-requisitos
-
-Certifique-se de ter o Python 3.12+ instalado.
-
-### 2. Configuração do Ambiente
-
+### 1. Clone e Configure
 ```bash
-# Clone o repositório (se aplicável) ou navegue até a pasta do projeto
 cd marcenaria_mvp
-
-# Crie um ambiente virtual
 python -m venv .venv
-
-# Ative o ambiente virtual
-# Windows (PowerShell):
-.\.venv\Scripts\Activate
-# Linux/Mac:
-source .venv/bin/activate
-
-# Instale as dependências
-pip install django weasyprint boto3 requests pillow
+.venv\Scripts\Activate.ps1  # Windows
+pip install -r requirements.txt
 ```
 
-### 3. Configuração do Banco de Dados
-
+### 2. Configure Variáveis de Ambiente
 ```bash
-# Crie as migrações iniciais
-python manage.py makemigrations
+cp .env.example .env
+# Edite .env com suas credenciais
+```
 
-# Aplique as migrações ao banco de dados
+### 3. Inicialize o Banco
+```bash
 python manage.py migrate
-
-# Crie um superusuário para acessar o admin
 python manage.py createsuperuser
 ```
 
-### 4. Executando o Servidor
-
+### 4. Execute
 ```bash
 python manage.py runserver
 ```
 
-Acesse o sistema em: `http://127.0.0.1:8000/`
+Acesse: `http://localhost:8000`
 
-## 📂 Estrutura do Projeto
+## 📖 Documentação Completa
+
+- [Guia de Deploy](DEPLOY.md) - Instruções detalhadas para produção
+- [DIRETRIZ.md](../DIRETRIZ.md) - Especificações do projeto
+
+## 🎨 Design System
+
+```css
+--verde-madeira: #2C5530
+--dourado-ferramenta: #D4A017
+--marrom: #8B4513
+--bg: #F8F9FA
+```
+
+## 📁 Estrutura do Projeto
 
 ```
 marcenaria_mvp/
 ├── core/                   # App principal
-│   ├── models.py           # Modelos (Cliente, Orcamento)
-│   ├── views.py            # Lógica das views
-│   ├── forms.py            # Formulários Django
-│   └── templates/          # Templates HTML (Bootstrap 5)
-├── marcenaria/             # Configurações do projeto
-│   ├── settings.py         # Configurações globais (S3, WhatsApp)
-│   └── urls.py             # Rotas principais
-├── static/                 # Arquivos estáticos (CSS, JS)
-├── media/                  # Uploads de usuários
-└── manage.py               # Utilitário de comando Django
+│   ├── models.py          # Cliente, Orcamento
+│   ├── views.py           # Lógica de negócio
+│   ├── forms.py           # Formulários
+│   ├── templates/         # Templates HTML
+│   └── templatetags/      # Filtros customizados
+├── marcenaria/            # Configurações Django
+│   └── settings.py        # Configurações + env vars
+├── static/                # Arquivos estáticos
+├── .env.example           # Template de variáveis
+└── requirements.txt       # Dependências Python
 ```
 
-## ✅ Funcionalidades Implementadas
+## 🔐 Segurança
 
-- [x] Autenticação (Login/Logout)
-- [x] Dashboard com métricas iniciais
-- [x] CRUD de Clientes (Listar, Criar, Buscar)
-- [x] Design System com Bootstrap 5 e cores personalizadas
-- [ ] CRUD de Orçamentos (Em breve)
-- [ ] Geração de PDF e Envio WhatsApp (Em breve)
+- Autenticação obrigatória para todas as views
+- CSRF protection habilitado
+- Variáveis sensíveis em `.env`
+- HTTPS em produção (recomendado)
 
-## ⚠️ Notas Importantes
+## 📝 Licença
 
-- **Ambiente Virtual:** Sempre ative o ambiente virtual (`.venv`) antes de rodar comandos do Django. Se receber erro de `ImportError`, verifique se o venv está ativo.
-- **Configurações:** As chaves de API (AWS, WhatsApp) devem ser configuradas no arquivo `marcenaria/settings.py` antes de usar essas funcionalidades em produção.
+Projeto desenvolvido para uso comercial.
+
+## 🤝 Contribuindo
+
+Este é um projeto privado. Para sugestões ou melhorias, entre em contato.
+
+---
+
+**Desenvolvido com ❤️ para marceneiros profissionais**

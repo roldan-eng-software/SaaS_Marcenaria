@@ -33,7 +33,7 @@
                 <td>{{ cliente.whatsapp }}</td>
                 <td>{{ cliente.email }}</td>
                 <td>
-                    <a href="#" class="btn btn-sm btn-info text-white">Editar</a>
+                    <a href="{% url 'cliente_edit' cliente.pk %}" class="btn btn-sm btn-info text-white">Editar</a>
                 </td>
             </tr>
             {% empty %}
