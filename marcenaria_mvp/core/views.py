@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from .models import Cliente, Orcamento
-from .forms import ClienteForm, OrcamentoForm
+from .forms import ClienteForm, OrcamentoForm, ItemOrcamentoFormSet, ImagemOrcamentoFormSet
 import json
 import logging
 from django.template.loader import render_to_string
@@ -11,11 +11,13 @@ import boto3
 
 logger = logging.getLogger(__name__)
 
+from django.db.models import Sum
+
 @login_required
 def dashboard(request):
-    orcamentos_pendentes = Orcamento.objects.filter(status='rascunho').count()
-    clientes_novos = Cliente.objects.count()
-    receita = sum(orc.total for orc in Orcamento.objects.filter(status='aprovado'))
+    orcamentos_pendentes = Orcamento.objects.filter(user=request.user, status='rascunho').count()
+    clientes_novos = Cliente.objects.filter(user=request.user).count()
+    receita = Orcamento.objects.filter(user=request.user, status='aprovado').aggregate(Sum('total'))['total__sum'] or 0
     
     return render(request, 'dashboard.html', {
         'orcamentos_pendentes': orcamentos_pendentes,
@@ -27,9 +29,9 @@ def dashboard(request):
 def clientes_list(request):
     query = request.GET.get('q')
     if query:
-        clientes = Cliente.objects.filter(nome__icontains=query)
+        clientes = Cliente.objects.filter(user=request.user, nome__icontains=query)
     else:
-        clientes = Cliente.objects.all()
+        clientes = Cliente.objects.filter(user=request.user)
     return render(request, 'clientes_list.html', {'clientes': clientes})
 
 @login_required
@@ -37,7 +39,9 @@ def cliente_create(request):
     if request.method == 'POST':
         form = ClienteForm(request.POST)
         if form.is_valid():
-            form.save()
+            cliente = form.save(commit=False)
+            cliente.user = request.user
+            cliente.save()
             return redirect('clientes_list')
     else:
         form = ClienteForm()
@@ -45,7 +49,7 @@ def cliente_create(request):
 
 @login_required
 def cliente_edit(request, pk):
-    cliente = get_object_or_404(Cliente, pk=pk)
+    cliente = get_object_or_404(Cliente, pk=pk, user=request.user)
     if request.method == 'POST':
         form = ClienteForm(request.POST, instance=cliente)
         if form.is_valid():
@@ -61,7 +65,7 @@ def orcamento_list(request):
     data_inicio = request.GET.get('data_inicio')
     data_fim = request.GET.get('data_fim')
     
-    orcamentos = Orcamento.objects.all()
+    orcamentos = Orcamento.objects.filter(user=request.user).select_related('cliente')
     
     if status_filter:
         orcamentos = orcamentos.filter(status=status_filter)
@@ -77,78 +81,56 @@ def orcamento_list(request):
 @login_required
 def orcamento_create(request):
     if request.method == 'POST':
-        form = OrcamentoForm(request.POST, request.FILES)
-        if form.is_valid():
+        form = OrcamentoForm(request.POST)
+        item_formset = ItemOrcamentoFormSet(request.POST, instance=Orcamento())
+        imagem_formset = ImagemOrcamentoFormSet(request.POST, request.FILES, instance=Orcamento())
+        if form.is_valid() and item_formset.is_valid() and imagem_formset.is_valid():
             orcamento = form.save(commit=False)
-            
-            # Processar upload de imagens para S3
-            uploaded_images = []
-            upload_files = request.FILES.getlist('upload_imagens')
-            
-            if upload_files and settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY and not settings.AWS_ACCESS_KEY_ID.startswith('your-'):
-                s3 = boto3.client(
-                    's3',
-                    aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-                    region_name=settings.AWS_S3_REGION_NAME,
-                    endpoint_url=settings.AWS_S3_ENDPOINT_URL,
-                )
-                
-                for file in upload_files:
-                    try:
-                        key = f"orcamentos/{orcamento.id if orcamento.id else 'temp'}/{file.name}"
-                        s3.upload_fileobj(
-                            file,
-                            settings.AWS_STORAGE_BUCKET_NAME,
-                            key,
-                            ExtraArgs={'ContentType': file.content_type}
-                        )
-                        
-                        image_url = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{key}"
-                        uploaded_images.append({
-                            's3_url': image_url,
-                            'descricao': file.name
-                        })
-                        
-                    except Exception as e:
-                        logger.error("Erro no upload para S3: %s", e)
-            
-            # Combinar imagens existentes com novas
-            existing_images = form.cleaned_data.get('imagens', [])
-            orcamento.imagens = existing_images + uploaded_images
-            
+            orcamento.user = request.user
             orcamento.save()
+            item_formset.instance = orcamento
+            item_formset.save()
+            imagem_formset.instance = orcamento
+            imagem_formset.save()
             return redirect('orcamento_detail', pk=orcamento.id)
         else:
             logger.error("Form errors: %s", form.errors)
             logger.debug("POST data: %s", request.POST)
     else:
         form = OrcamentoForm()
-    return render(request, 'orcamento_form.html', {'form': form})
+        item_formset = ItemOrcamentoFormSet(instance=Orcamento())
+        imagem_formset = ImagemOrcamentoFormSet(instance=Orcamento())
+    return render(request, 'orcamento_form.html', {'form': form, 'item_formset': item_formset, 'imagem_formset': imagem_formset})
 
 @login_required
 def orcamento_edit(request, pk):
-    orcamento = get_object_or_404(Orcamento, pk=pk)
+    orcamento = get_object_or_404(Orcamento, pk=pk, user=request.user)
     if request.method == 'POST':
         form = OrcamentoForm(request.POST, instance=orcamento)
-        if form.is_valid():
+        item_formset = ItemOrcamentoFormSet(request.POST, instance=orcamento)
+        imagem_formset = ImagemOrcamentoFormSet(request.POST, request.FILES, instance=orcamento)
+        if form.is_valid() and item_formset.is_valid() and imagem_formset.is_valid():
             form.save()
+            item_formset.save()
+            imagem_formset.save()
             return redirect('orcamento_detail', pk=pk)
         else:
             logger.error("Form errors: %s", form.errors)
     else:
         form = OrcamentoForm(instance=orcamento)
-    return render(request, 'orcamento_form.html', {'form': form, 'orcamento': orcamento})
+        item_formset = ItemOrcamentoFormSet(instance=orcamento)
+        imagem_formset = ImagemOrcamentoFormSet(instance=orcamento)
+    return render(request, 'orcamento_form.html', {'form': form, 'item_formset': item_formset, 'imagem_formset': imagem_formset, 'orcamento': orcamento})
 
 @login_required
 def orcamento_detail(request, pk):
-    orcamento = get_object_or_404(Orcamento, pk=pk)
+    orcamento = get_object_or_404(Orcamento, pk=pk, user=request.user)
     return render(request, 'orcamento_detail.html', {'orcamento': orcamento})
 
 @login_required
 def orcamento_update_status(request, pk):
     if request.method == 'POST':
-        orcamento = get_object_or_404(Orcamento, pk=pk)
+        orcamento = get_object_or_404(Orcamento, pk=pk, user=request.user)
         new_status = request.POST.get('status')
         if new_status in ['rascunho', 'enviado', 'aprovado']:
             orcamento.status = new_status
@@ -159,7 +141,7 @@ def orcamento_update_status(request, pk):
 def orcamento_pdf(request, pk):
     from django.http import HttpResponse
     from weasyprint import HTML
-    orcamento = get_object_or_404(Orcamento, pk=pk)
+    orcamento = get_object_or_404(Orcamento, pk=pk, user=request.user)
     html = render_to_string('orcamento_pdf.html', {'orcamento': orcamento})
     pdf_bytes = HTML(string=html).write_pdf()
     response = HttpResponse(pdf_bytes, content_type='application/pdf')
@@ -170,7 +152,7 @@ def orcamento_pdf(request, pk):
 def orcamento_enviar(request, pk):
     from django.contrib import messages
     from weasyprint import HTML
-    orcamento = get_object_or_404(Orcamento, pk=pk)
+    orcamento = get_object_or_404(Orcamento, pk=pk, user=request.user)
     try:
         html = render_to_string('orcamento_pdf.html', {'orcamento': orcamento})
         pdf_bytes = HTML(string=html).write_pdf()

@@ -13,10 +13,10 @@
                 <label class="form-label small mb-1">Status</label>
                 <select name="status" class="form-select">
                     <option value="">Todos</option>
-                    <option value="rascunho" {% if request.GET.status=='rascunho' %}selected{% endif %}>Rascunho
+                    <option value="rascunho" {% if request.GET.status == "rascunho" %}selected{% endif %}>Rascunho
                     </option>
-                    <option value="enviado" {% if request.GET.status=='enviado' %}selected{% endif %}>Enviado</option>
-                    <option value="aprovado" {% if request.GET.status=='aprovado' %}selected{% endif %}>Aprovado
+                    <option value="enviado" {% if request.GET.status == "enviado" %}selected{% endif %}>Enviado</option>
+                    <option value="aprovado" {% if request.GET.status == "aprovado" %}selected{% endif %}>Aprovado
                     </option>
                 </select>
             </div>

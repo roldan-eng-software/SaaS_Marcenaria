@@ -1,5 +1,6 @@
 from django import forms
-from .models import Cliente, Orcamento
+from .models import Cliente, Orcamento, ItemOrcamento, ImagemOrcamento
+from .widgets import MultipleFileInput
 
 class ClienteForm(forms.ModelForm):
     class Meta:
@@ -13,44 +14,47 @@ class ClienteForm(forms.ModelForm):
         }
 
 class OrcamentoForm(forms.ModelForm):
-    itens = forms.CharField(required=False, widget=forms.HiddenInput())
-    imagens = forms.CharField(required=False, widget=forms.HiddenInput())
-    upload_imagens = forms.FileField(
-        required=False,
-        widget=forms.ClearableFileInput(attrs={
-            'class': 'form-control',
-            'multiple': True,
-            'accept': 'image/*'
-        }),
-        label='Upload de Imagens'
-    )
-    
     class Meta:
         model = Orcamento
-        fields = ['cliente', 'status', 'itens', 'imagens', 'total', 'upload_imagens']
+        fields = ['cliente', 'status', 'total']
         widgets = {
             'cliente': forms.Select(attrs={'class': 'form-select'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
             'total': forms.NumberInput(attrs={'class': 'form-control', 'readonly': 'readonly'}),
         }
-    
-    def clean_itens(self):
-        import json
-        data = self.cleaned_data.get('itens', '[]')
-        if not data:
-            return []
-        try:
-            return json.loads(data)
-        except json.JSONDecodeError:
-            return []
-    
-    def clean_imagens(self):
-        import json
-        data = self.cleaned_data.get('imagens', '[]')
-        if not data:
-            return []
-        try:
-            return json.loads(data)
-        except json.JSONDecodeError:
-            return []
 
+class ItemOrcamentoForm(forms.ModelForm):
+    class Meta:
+        model = ItemOrcamento
+        fields = ['material', 'quantidade', 'preco_unitario']
+        widgets = {
+            'material': forms.TextInput(attrs={'class': 'form-control'}),
+            'quantidade': forms.NumberInput(attrs={'class': 'form-control'}),
+            'preco_unitario': forms.NumberInput(attrs={'class': 'form-control'}),
+        }
+
+ItemOrcamentoFormSet = forms.inlineformset_factory(
+    Orcamento,
+    ItemOrcamento,
+    form=ItemOrcamentoForm,
+    extra=1,
+    can_delete=True,
+    can_delete_extra=True
+)
+
+class ImagemOrcamentoForm(forms.ModelForm):
+    class Meta:
+        model = ImagemOrcamento
+        fields = ['imagem']
+        widgets = {
+            'imagem': MultipleFileInput(attrs={'class': 'form-control'}),
+        }
+
+ImagemOrcamentoFormSet = forms.inlineformset_factory(
+    Orcamento,
+    ImagemOrcamento,
+    form=ImagemOrcamentoForm,
+    extra=1,
+    can_delete=True,
+    can_delete_extra=True
+)
